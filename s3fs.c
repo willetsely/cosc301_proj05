@@ -341,12 +341,10 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "%s environment variable must be defined\n", S3SECRETKEY);
         return -1;
     }
-    }
     char *s3bucket = getenv(S3BUCKET);
     if (!s3bucket) {
         fprintf(stderr, "%s environment variable must be defined\n", S3BUCKET);
         return -1;
-    }
     }
     strncpy((*stateinfo).s3bucket, s3bucket, BUFFERSIZE);
 
