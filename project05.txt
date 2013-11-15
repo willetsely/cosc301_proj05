@@ -1,7 +1,7 @@
 COSC 301 Project 5, Fall 2013: Amazon S3-backed File system
 ===========================================================
 
-Due Thursday, 11 December 2013, 23:59:59
+Due Thursday, 12 December 2013, 23:59:59
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For the last project, you will build a fully-functional filesystem that stores
