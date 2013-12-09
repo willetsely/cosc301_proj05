@@ -167,9 +167,9 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
 	success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
 	free(buffer);
 	if (success < 0)
-    	return -EIO;
+	    return -EIO;
 	else
-		return 1;
+	    return 1;
 }
 
 
@@ -183,14 +183,14 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "fs_readdir(path=\"%s\", buf=%p, offset=%d)\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-	uint8_t *buffer = NULL;
-	ssize_t success = 0;
-	ssize_t byte_count = (ssize_t)offset;
-	success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
-	if (success < 0)
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    ssize_t byte_count = (ssize_t)offset;
+    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
+    if (success < 0)
 	{
-		free(buffer);
-    	return -EIO;
+        free(buffer);
+        return -EIO;
 	}
 	int num_entries = (int)success / sizeof(entry_t);
 	int i = 0;

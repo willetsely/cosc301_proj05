@@ -162,14 +162,14 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-	uint8_t *buffer = NULL;
-	ssize_t success = 0;
-	success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
-	free(buffer);
-	if (success < 0)
-	    return -EIO;
-	else
-	    return 1;
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
+    free(buffer);
+    if (success < 0)
+    	return -EIO;
+    else
+	return 1;
 }
 
 
@@ -188,10 +188,10 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     ssize_t byte_count = (ssize_t)offset;
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
     if (success < 0)
-	{
+    {
         free(buffer);
         return -EIO;
-	}
+    }
 	int num_entries = (int)success / sizeof(entry_t);
 	int i = 0;
 	struct entry_t *entries = (struct entry_t *)buffer;
