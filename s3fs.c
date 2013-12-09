@@ -19,6 +19,7 @@
 #include <sys/xattr.h>
 
 #define GET_PRIVATE_DATA ((s3context_t *) fuse_get_context()->private_data)
+#define ENTRY_SIZE (sizeof(entry_t))
 
 /*
  * For each function below, if you need to return an error,
@@ -42,6 +43,28 @@ void *fs_init(struct fuse_conn_info *conn)
 {
     fprintf(stderr, "fs_init --- initializing file system.\n");
     s3context_t *ctx = GET_PRIVATE_DATA;
+    s3fs_clear_bucket(ctx->s3bucket);
+    
+    ssize_t success = 0;
+    const char *key = "/"
+    time_t curr_time = time(NULL);
+    entry_t *root = (entry_t *)malloc(ENTRY_SIZE);
+    
+    root->type = 'd';
+    strncpy(root->name, ".", 1);
+    root->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
+    root->links = 0;
+    root->uid = //???
+    root->gid = //???
+    root-rdev = //???
+    root->curr_time;
+    root->curr_time;
+    root->curr_time;
+    
+    ssize_t success = s3fs_put_object(ctx->s3bucket, key, (uint8_t *)root, ENTRY_SIZE);       
+    free(root);
+    if (success == -1)
+        return -EIO;
     return ctx;
 }
 
