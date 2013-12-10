@@ -19,6 +19,7 @@
 #include <sys/xattr.h>
 
 #define GET_PRIVATE_DATA ((s3context_t *) fuse_get_context()->private_data)
+#define ENTRY_SIZE (sizeof(entry_t))
 
 /*
  * For each function below, if you need to return an error,
@@ -42,6 +43,28 @@ void *fs_init(struct fuse_conn_info *conn)
 {
     fprintf(stderr, "fs_init --- initializing file system.\n");
     s3context_t *ctx = GET_PRIVATE_DATA;
+    s3fs_clear_bucket(ctx->s3bucket);
+    
+    ssize_t success = 0;
+    const char *key = "/"
+    time_t curr_time = time(NULL);
+    entry_t *root = (entry_t *)malloc(ENTRY_SIZE);
+    
+    root->type = 'd';
+    strncpy(root->name, ".", 1);
+    root->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
+    root->links = 0;
+    root->uid = //???
+    root->gid = //???
+    root-rdev = //???
+    root->curr_time;
+    root->curr_time;
+    root->curr_time;
+    
+    ssize_t success = s3fs_put_object(ctx->s3bucket, key, (uint8_t *)root, ENTRY_SIZE);       
+    free(root);
+    if (success == -1)
+        return -EIO;
     return ctx;
 }
 
@@ -139,7 +162,14 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
+    free(buffer);
+    if (success < 0)
+    	return -EIO;
+    else
+	return 1;
 }
 
 
@@ -153,7 +183,28 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "fs_readdir(path=\"%s\", buf=%p, offset=%d)\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    ssize_t byte_count = (ssize_t)offset;
+    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
+    if (success < 0)
+    {
+        free(buffer);
+        return -EIO;
+    }
+	int num_entries = (int)success / sizeof(entry_t);
+	int i = 0;
+	struct entry_t *entries = (struct entry_t *)buffer;
+	for (; i < num_entries; i++)
+	{
+		if (filler(buf, entries[i]->name, NULL, 0) != 0)
+		{
+			free(buffer);
+			return -ENOMEM;
+		}
+	}
+	free(buffer);
+	return 1; 
 }
 
 
