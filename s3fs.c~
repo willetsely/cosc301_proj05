@@ -19,10 +19,7 @@
 #include <sys/xattr.h>
 
 #define GET_PRIVATE_DATA ((s3context_t *) fuse_get_context()->private_data)
-<<<<<<< HEAD
-=======
 #define ENTRY_SIZE (sizeof(entry_t))
->>>>>>> ad475dc205cc778ffd037fcd3cd0ba643025e905
 
 /*
  * For each function below, if you need to return an error,
@@ -46,8 +43,6 @@ void *fs_init(struct fuse_conn_info *conn)
 {
     fprintf(stderr, "fs_init --- initializing file system.\n");
     s3context_t *ctx = GET_PRIVATE_DATA;
-<<<<<<< HEAD
-=======
     s3fs_clear_bucket(ctx->s3bucket);
     
     ssize_t success = 0;
@@ -70,7 +65,6 @@ void *fs_init(struct fuse_conn_info *conn)
     free(root);
     if (success == -1)
         return -EIO;
->>>>>>> ad475dc205cc778ffd037fcd3cd0ba643025e905
     return ctx;
 }
 
@@ -116,7 +110,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     int i = 0;
     for(; i < num_entries; i++)
     {
-        if(0 == strncmp(curr_dir[i]->name, base_name, 256)
+        if(0 == strncmp(curr_dir[i]->name, base_name, 256))
         {
             if(curr_dir[i]->type == 'f')
             {       
@@ -168,18 +162,14 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-<<<<<<< HEAD
-    return -EIO;
-=======
-	uint8_t *buffer = NULL;
-	ssize_t success = 0;
-	success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
-	free(buffer);
-	if (success < 0)
-	    return -EIO;
-	else
-	    return 1;
->>>>>>> ad475dc205cc778ffd037fcd3cd0ba643025e905
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
+    free(buffer);
+    if (success < 0)
+    	return -EIO;
+    else
+	return 1;
 }
 
 
@@ -193,18 +183,15 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "fs_readdir(path=\"%s\", buf=%p, offset=%d)\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-<<<<<<< HEAD
-    return -EIO;
-=======
     uint8_t *buffer = NULL;
     ssize_t success = 0;
     ssize_t byte_count = (ssize_t)offset;
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
     if (success < 0)
-	{
+    {
         free(buffer);
         return -EIO;
-	}
+    }
 	int num_entries = (int)success / sizeof(entry_t);
 	int i = 0;
 	struct entry_t *entries = (struct entry_t *)buffer;
@@ -218,7 +205,6 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 	}
 	free(buffer);
 	return 1; 
->>>>>>> ad475dc205cc778ffd037fcd3cd0ba643025e905
 }
 
 
@@ -244,24 +230,57 @@ int fs_mkdir(const char *path, mode_t mode) {
     fprintf(stderr, "fs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
     s3context_t *ctx = GET_PRIVATE_DATA;
     mode |= S_IFDIR;
-<<<<<<< HEAD
     
     uint8_t *buffer = NULL;
     ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
     if(success >=  0)
     {
-        fprint(stderr, "Error: Directory already exists");
+		free(buffer);
         return -EEXIST;
     } 
+	free(buffer);
 
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));
     
-    success = s3fs_get_object(ctx->s3bucket, path_name,
-    
-=======
+    success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
+	int num_entries = sizeof(buffer)/ENTRY_SIZE;
+	entry_t * new_parent = (entry *)malloc(sizeof(buffer) + ENTRY_SIZE);
+	entry_t *old_parent = (entry_t *)buffer;
+	free(buffer);
 
->>>>>>> ad475dc205cc778ffd037fcd3cd0ba643025e905
+	int i = 0;
+	for(; i < num_entries; i++)
+	{
+		//copy old entries over
+		new_parent[i] = old_parent[i];
+    }
+	//create new entry
+    new_parent[0]->size = (num_entries + 1)*ENTRY_SIZE;
+	strncpy(new_parent[i]->name, base_name, 256);
+	new_parent[i]->type = 'd';
+	
+	success = s3fs_put_object(ctx->s3bucket, path_name, new_parent, sizeof(new_parent));
+	if(success < 0)
+	{
+		return -EIO;
+	}
+	time_t curr_time = time(NULL);	
+	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
+	strncpy(new_dir[0]->name, ".", 256);
+	new_dir[0]->type = 'd';
+	new_dir[0]->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
+    new_dir[0]->links = //??
+    new_dir[0]->uid =   //??
+    new_dir[0]->gid =   //??
+    new_dir[0]->rdev =  //??
+    new_dir[0]->size =  ENTRY_SIZE;
+    new_dir[0]->atime = curr_time;
+    new_dir[0]->mtime = curr_time;
+    new_dir[0]->ctime = curr_time;
+
+    //return success
+
     return -EIO;
 }
 
