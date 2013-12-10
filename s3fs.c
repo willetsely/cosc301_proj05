@@ -65,9 +65,70 @@ void fs_destroy(void *userdata) {
 int fs_getattr(const char *path, struct stat *statbuf) {
     fprintf(stderr, "fs_getattr(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
+    
+    char *path_name = dirname(strdup(path));
+    char *base_name = basename(strdup(path));
+
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    
+    success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
+    //******* need to correct last parameter above, how many bytes to read
+    if(success < 0)
+    {
+        fprint(stderr, "directory %s does not exist\n", path_name);
+        return -EIO;
+    }
+    
+    int num_entries = sizeof(buffer)/ENTRY_SIZE;
+    entry_t * curr_dir = (entry_t *) buffer;
+    free(buffer);
+    
+    int i = 0;
+    for(; i < num_entries; i++)
+    {
+        if(0 == strncmp(curr_dir[i]->name, base_name, 256)
+        {
+            if(curr_dir[i]->type == 'f')
+            {       
+                statbuf->st_mode = curr_dir[i]->mode;
+                statbuf->st_nlink = curr_dir[i]->links;
+                statbuf->st_uid = curr_dir[i]->uid;
+                statbuf->st_gid = curr_dir[i]->gid;
+                statbuf->st_rdev = curr_dir[i]->rdev;
+                statbuf->st_size = curr_dir[i]->size;
+                statbuf->st_atime = curr_dir[i]->atime;
+                statbuf->st_mtime = curr_dir[i]->mtime;
+                statbuf->st_ctime = curr_dir[i]->ctime;
+                return 1; //success!
+            }
+            else if(curr_dir[i]->type == 'd')
+            {
+                success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
+                if(success < 0)
+                {
+                    fprint(stderr, "directory %s does not exist\n", base_name);
+                    return -EIO;
+                }
+
+                entry_t dot = (entry_t) buffer;
+                free(buffer);
+
+                statbuf->st_mode = dot->mode;
+                statbuf->st_nlink = dot->links;
+                statbuf->st_uid = dot->uid;
+                statbuf->st_gid = dot->gid;
+                statbuf->st_rdev = dot->rdev;
+                statbuf->st_size = dot->size;
+                statbuf->st_atime = dot->atime;
+                statbuf->st_mtime = dot->mtime;
+                statbuf->st_ctime = dot->ctime;
+                return 1; //success!
+            }
+        } 
+    } 
     return -EIO;
 }
-
 
 /*
  * Open directory
