@@ -41,6 +41,6 @@ typedef struct {
     time_t atime;   //time of last access
     time_t mtime;   //time of last modification
     time_t ctime;   //time of last status change
-} entry;
+} entry_t;
 
 #endif // __USERSPACEFS_H__
