@@ -96,7 +96,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
     if(success < 0)
     {
-        printf(stderr, "directory %s does not exist\n", path_name);
+        fprint(stderr, "directory %s does not exist\n", path_name);
         return -EIO;
     }
     
@@ -131,7 +131,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
                 success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
                 if(success < 0)
                 {
-                    printf(stderr, "directory %s does not exist\n", base_name);
+                    fprint(stderr, "directory %s does not exist\n", base_name);
                     return -EIO;
                 }
 
