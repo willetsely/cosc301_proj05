@@ -53,10 +53,9 @@ void *fs_init(struct fuse_conn_info *conn)
     root->type = 'd';
     strncpy(root->name, ".", 1);
     root->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
-    root->links = 0;
-    root->uid = //???
-    root->gid = //???
-    root-rdev = //???
+    root->links = 1;
+    root->uid = getuid();
+    root->gid = getgid();
     root->curr_time;
     root->curr_time;
     root->curr_time;
@@ -96,7 +95,6 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     ssize_t success = 0;
     
     success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
-    //******* need to correct last parameter above, how many bytes to read
     if(success < 0)
     {
         fprint(stderr, "directory %s does not exist\n", path_name);
@@ -114,8 +112,10 @@ int fs_getattr(const char *path, struct stat *statbuf) {
         {
             if(curr_dir[i]->type == 'f')
             {       
-                statbuf->st_mode = curr_dir[i]->mode;
-                statbuf->st_nlink = curr_dir[i]->links;
+				statbuf->st_dev = //??
+				statbuf->st_
+                statbuf->st_mode = curr_dir[i].mode;
+                statbuf->st_nlink = curr_dir[i].links;
                 statbuf->st_uid = curr_dir[i]->uid;
                 statbuf->st_gid = curr_dir[i]->gid;
                 statbuf->st_rdev = curr_dir[i]->rdev;
@@ -275,18 +275,16 @@ int fs_mkdir(const char *path, mode_t mode) {
 	strncpy(new_dir[0]->name, ".", 256);
 	new_dir[0]->type = 'd';
 	new_dir[0]->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
-    new_dir[0]->links = //??
-    new_dir[0]->uid =   //??
-    new_dir[0]->gid =   //??
-    new_dir[0]->rdev =  //??
+    new_dir[0]->links = 1;
+    new_dir[0]->uid =   getuid();
+    new_dir[0]->gid =   getgid();
     new_dir[0]->size =  ENTRY_SIZE;
     new_dir[0]->atime = curr_time;
     new_dir[0]->mtime = curr_time;
     new_dir[0]->ctime = curr_time;
 
     //return success
-
-    return -EIO;
+    return 0;
 }
 
 

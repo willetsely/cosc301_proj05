@@ -54,9 +54,8 @@ void *fs_init(struct fuse_conn_info *conn)
     strncpy(root->name, ".", 1);
     root->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
     root->links = 0;
-    root->uid = //???
-    root->gid = //???
-    root-rdev = //???
+    root->uid = getuid();
+    root->gid = getgid();
     root->curr_time;
     root->curr_time;
     root->curr_time;
@@ -162,10 +161,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> f322d520dc1d5fbbbb61035da871c929f3fd6c4e
+
     uint8_t *buffer = NULL;
     ssize_t success = 0;
     success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
@@ -187,10 +183,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "fs_readdir(path=\"%s\", buf=%p, offset=%d)\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-<<<<<<< HEAD
-=======
 
->>>>>>> f322d520dc1d5fbbbb61035da871c929f3fd6c4e
     uint8_t *buffer = NULL;
     ssize_t success = 0;
     ssize_t byte_count = (ssize_t)offset;
@@ -238,11 +231,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     fprintf(stderr, "fs_mkdir(path=\"%s\", mode=0%3o)\n", path, mode);
     s3context_t *ctx = GET_PRIVATE_DATA;
     mode |= S_IFDIR;
-<<<<<<< HEAD
-    
-=======
-   
->>>>>>> f322d520dc1d5fbbbb61035da871c929f3fd6c4e
+
     uint8_t *buffer = NULL;
     ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
     if(success >=  0)
@@ -268,10 +257,7 @@ int fs_mkdir(const char *path, mode_t mode) {
 		new_parent[i] = old_parent[i];
     }
 	//create new entry
-<<<<<<< HEAD
-=======
     new_parent[0]->size = (num_entries + 1)*ENTRY_SIZE;
->>>>>>> f322d520dc1d5fbbbb61035da871c929f3fd6c4e
 	strncpy(new_parent[i]->name, base_name, 256);
 	new_parent[i]->type = 'd';
 	
@@ -280,13 +266,11 @@ int fs_mkdir(const char *path, mode_t mode) {
 	{
 		return -EIO;
 	}
-<<<<<<< HEAD
 		
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0]->name, ".", 256);
 	new_dir[0]->type = 'd';
 	//add metadata
-=======
 	time_t curr_time = time(NULL);	
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0]->name, ".", 256);
@@ -302,9 +286,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0]->ctime = curr_time;
 
     //return success
->>>>>>> f322d520dc1d5fbbbb61035da871c929f3fd6c4e
-
-    return -EIO;
+    return 0;
 }
 
 
