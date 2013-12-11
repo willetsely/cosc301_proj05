@@ -110,7 +110,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     int i = 0;
     for(; i < num_entries; i++)
     {
-        if(0 == strncmp(curr_dir[i]->name, base_name, 256)
+        if(0 == strncmp(curr_dir[i]->name, base_name, 256))
         {
             if(curr_dir[i]->type == 'f')
             {       
