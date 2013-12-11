@@ -194,7 +194,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 	}
 	int num_entries = (int)success / sizeof(entry_t);
 	int i = 0;
-	struct entry_t *entries = (struct entry_t *)buffer;
+	entry_t *entries = (entry_t *)buffer;
 	for (; i < num_entries; i++)
 	{
 		if (filler(buf, entries[i]->name, NULL, 0) != 0)
@@ -241,7 +241,64 @@ int fs_mkdir(const char *path, mode_t mode) {
 int fs_rmdir(const char *path) {
     fprintf(stderr, "fs_rmdir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    uint8_t *buffer = NULL;
+    ssize_t success = 0;
+    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    char *path_name = NULL;
+    char *base_name = NULL;
+    if (success < 0)
+    {
+        free(buffer);
+        return -EIO;
+    }
+    if (success != ENTRY_SIZE)     //directory not empty
+    {
+        printf(stderr, "fs_rmdir(path=\"%s\" is not empty)\n", path);
+        free(buffer);
+        return 0;
+    }
+    else
+    {
+        free(buffer);
+        if(s3fs_remove_object(ctx->s3bucket, path) == 0)
+        {
+            printf("%s Directory was successfully removed\n", path);
+            path_name = dirname(strdup(path));
+            base_name = basename(strdup(path));
+            ssize_t parent_size = 0;
+            uint8_t *buff = NULL;
+            parent_size = s3fs_get_object(ctx->s3bucket, path_name, &buff, 0, 0);
+            entry_t *parent_entry = (entry_t *)buff;
+            int num_entries = (int)parent_size / (int)ENTRY_SIZE;
+            entry_t *new_parent = (entry_t *)malloc((int)ENTRY_SIZE * (num_entries - 1));
+            int j = 1;
+            for (int i = 0; i < num_entries; i++)
+            {
+                if (strcmp(parent_entry[i]->name, base_name) != 0)
+                {
+                    if (j == num_entries)
+                        break;
+                    else
+                    {
+                        while (j < num_entries)
+                        {
+                            new_parent[i] = parent_entry[j]; //some copy function is probably needed
+                            i++;
+                            j++;
+                        }
+                        break;
+                    }
+                }
+                new_parent[i] = parent_entry[i];  //some copy function is probably needed instead
+                j++;
+            }
+            ssize_t overwrite = 0;
+            overwrite = s3fs_put_object(ctx->s3bucket, path_name, &buff, ((int)ENTRY_SIZE * (num_entries - 1)));
+            free(buff);   
+            return 1;
+        }
+        return 0;
+    }
 }
 
 
