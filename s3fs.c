@@ -136,22 +136,22 @@ int fs_getattr(const char *path, struct stat *statbuf) {
                     return -EIO;
                 }
 
-                entry_t dot = (entry_t) buffer;
+                entry_t *dot = (entry_t *)buffer;
                 free(buffer);
 
                 statbuf->st_dev = 0;
 				statbuf->st_ino = 0;
-                statbuf->st_mode = dot.mode;
-                statbuf->st_nlink = dot.links;
-                statbuf->st_uid = dot.uid;
-                statbuf->st_gid = dot.gid;
+                statbuf->st_mode = dot[0].mode;
+                statbuf->st_nlink = dot[0].links;
+                statbuf->st_uid = dot[0].uid;
+                statbuf->st_gid = dot[0].gid;
                 statbuf->st_rdev = 0;
-                statbuf->st_size = dot.size;
+                statbuf->st_size = dot[0].size;
 				statbuf->st_blksize = 0;
 				statbuf->st_blocks = 0;
-                statbuf->st_atime = dot.atime;
-                statbuf->st_mtime = dot.mtime;
-                statbuf->st_ctime = dot.ctime;
+                statbuf->st_atime = dot[0].atime;
+                statbuf->st_mtime = dot[0].mtime;
+                statbuf->st_ctime = dot[0].ctime;
                 return 0; //success!
             }
         } 
@@ -256,7 +256,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     
     success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
 	int num_entries = sizeof(buffer)/ENTRY_SIZE;
-	entry_t * new_parent = (entry *)malloc(sizeof(buffer) + ENTRY_SIZE);
+	entry_t * new_parent = (entry_t *)malloc(sizeof(buffer) + ENTRY_SIZE);
 	entry_t *old_parent = (entry_t *)buffer;
 	free(buffer);
 
@@ -272,7 +272,9 @@ int fs_mkdir(const char *path, mode_t mode) {
 	strncpy(new_parent[i].name, base_name, 256);
 	new_parent[i].type = 'd';
 	
-	success = s3fs_put_object(ctx->s3bucket, path_name, new_parent, sizeof(new_parent));
+	uint8_t blob_new_parent = (uint8_t) new_parent;
+	free(new_parent);
+	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(new_parent));
 	if(success < 0)
 	{
 		return -EIO;

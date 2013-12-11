@@ -29,7 +29,7 @@ typedef struct {
 
 typedef struct {
     char type;
-    char[256] name;
+    char name[256];
 
     //metadata
     mode_t mode;    //protection
