@@ -45,8 +45,7 @@ void *fs_init(struct fuse_conn_info *conn)
     s3context_t *ctx = GET_PRIVATE_DATA;
     s3fs_clear_bucket(ctx->s3bucket);
     
-    ssize_t success = 0;
-    const char *key = "/"
+    const char *key = "/";
     time_t curr_time = time(NULL);
     entry_t *root = (entry_t *)malloc(ENTRY_SIZE);
     
@@ -56,9 +55,9 @@ void *fs_init(struct fuse_conn_info *conn)
     root->links = 1;
     root->uid = getuid();
     root->gid = getgid();
-    root->curr_time;
-    root->curr_time;
-    root->curr_time;
+    root->atime = curr_time;
+    root->mtime = curr_time;
+    root->ctime = curr_time;
     
     ssize_t success = s3fs_put_object(ctx->s3bucket, key, (uint8_t *)root, ENTRY_SIZE);       
     free(root);
