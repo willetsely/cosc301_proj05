@@ -261,6 +261,7 @@ int fs_mkdir(const char *path, mode_t mode) {
 		new_parent[i] = old_parent[i];
     }
 	//create new entry
+    new_parent[0]->size = (num_entries + 1)*ENTRY_SIZE;
 	strncpy(new_parent[i]->name, base_name, 256);
 	new_parent[i]->type = 'd';
 	
@@ -269,11 +270,21 @@ int fs_mkdir(const char *path, mode_t mode) {
 	{
 		return -EIO;
 	}
-		
+	time_t curr_time = time(NULL);	
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0]->name, ".", 256);
 	new_dir[0]->type = 'd';
-	//add metadata
+	new_dir[0]->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
+    new_dir[0]->links = //??
+    new_dir[0]->uid =   //??
+    new_dir[0]->gid =   //??
+    new_dir[0]->rdev =  //??
+    new_dir[0]->size =  ENTRY_SIZE;
+    new_dir[0]->atime = curr_time;
+    new_dir[0]->mtime = curr_time;
+    new_dir[0]->ctime = curr_time;
+
+    //return success
 
     return -EIO;
 }
