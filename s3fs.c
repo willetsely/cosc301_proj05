@@ -108,24 +108,26 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     int i = 0;
     for(; i < num_entries; i++)
     {
-        if(0 == strncmp(curr_dir[i]->name, base_name, 256))
+        if(0 == strncmp(curr_dir[i].name, base_name, 256))
         {
-            if(curr_dir[i]->type == 'f')
+            if(curr_dir[i].type == 'f')
             {       
-				statbuf->st_dev = //??
-				statbuf->st_
+				statbuf->st_dev = 0;
+				statbuf->st_ino = 0;
                 statbuf->st_mode = curr_dir[i].mode;
                 statbuf->st_nlink = curr_dir[i].links;
-                statbuf->st_uid = curr_dir[i]->uid;
-                statbuf->st_gid = curr_dir[i]->gid;
-                statbuf->st_rdev = curr_dir[i]->rdev;
-                statbuf->st_size = curr_dir[i]->size;
-                statbuf->st_atime = curr_dir[i]->atime;
-                statbuf->st_mtime = curr_dir[i]->mtime;
-                statbuf->st_ctime = curr_dir[i]->ctime;
+                statbuf->st_uid = curr_dir[i].uid;
+                statbuf->st_gid = curr_dir[i].gid;
+                statbuf->st_rdev = 0;
+                statbuf->st_size = curr_dir[i].size;
+				statbuf->st_blksize = 0;
+				statbuf->st_blocks = 0;
+                statbuf->st_atime = curr_dir[i].atime;
+                statbuf->st_mtime = curr_dir[i].mtime;
+                statbuf->st_ctime = curr_dir[i].ctime;
                 return 0; //success!
             }
-            else if(curr_dir[i]->type == 'd')
+            else if(curr_dir[i].type == 'd')
             {
                 success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
                 if(success < 0)
@@ -137,15 +139,19 @@ int fs_getattr(const char *path, struct stat *statbuf) {
                 entry_t dot = (entry_t) buffer;
                 free(buffer);
 
-                statbuf->st_mode = dot->mode;
-                statbuf->st_nlink = dot->links;
-                statbuf->st_uid = dot->uid;
-                statbuf->st_gid = dot->gid;
-                statbuf->st_rdev = dot->rdev;
-                statbuf->st_size = dot->size;
-                statbuf->st_atime = dot->atime;
-                statbuf->st_mtime = dot->mtime;
-                statbuf->st_ctime = dot->ctime;
+                statbuf->st_dev = 0;
+				statbuf->st_ino = 0;
+                statbuf->st_mode = dot.mode;
+                statbuf->st_nlink = dot.links;
+                statbuf->st_uid = dot.uid;
+                statbuf->st_gid = dot.gid;
+                statbuf->st_rdev = 0;
+                statbuf->st_size = dot.size;
+				statbuf->st_blksize = 0;
+				statbuf->st_blocks = 0;
+                statbuf->st_atime = dot.atime;
+                statbuf->st_mtime = dot.mtime;
+                statbuf->st_ctime = dot.ctime;
                 return 0; //success!
             }
         } 
@@ -260,10 +266,11 @@ int fs_mkdir(const char *path, mode_t mode) {
 		//copy old entries over
 		new_parent[i] = old_parent[i];
     }
+	//reset size of parent directory
+    new_parent[0].size = (num_entries + 1)*ENTRY_SIZE;
 	//create new entry
-    new_parent[0]->size = (num_entries + 1)*ENTRY_SIZE;
-	strncpy(new_parent[i]->name, base_name, 256);
-	new_parent[i]->type = 'd';
+	strncpy(new_parent[i].name, base_name, 256);
+	new_parent[i].type = 'd';
 	
 	success = s3fs_put_object(ctx->s3bucket, path_name, new_parent, sizeof(new_parent));
 	if(success < 0)
@@ -272,16 +279,16 @@ int fs_mkdir(const char *path, mode_t mode) {
 	}
 	time_t curr_time = time(NULL);	
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
-	strncpy(new_dir[0]->name, ".", 256);
-	new_dir[0]->type = 'd';
-	new_dir[0]->mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
-    new_dir[0]->links = 1;
-    new_dir[0]->uid =   getuid();
-    new_dir[0]->gid =   getgid();
-    new_dir[0]->size =  ENTRY_SIZE;
-    new_dir[0]->atime = curr_time;
-    new_dir[0]->mtime = curr_time;
-    new_dir[0]->ctime = curr_time;
+	strncpy(new_dir[0].name, ".", 256);
+	new_dir[0].type = 'd';
+	new_dir[0].mode = (S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR);
+    new_dir[0].links = 1;
+    new_dir[0].uid = getuid();
+    new_dir[0].gid = getgid();
+    new_dir[0].size =  ENTRY_SIZE;
+    new_dir[0].atime = curr_time;
+    new_dir[0].mtime = curr_time;
+    new_dir[0].ctime = curr_time;
 
     //return success
     return 0;

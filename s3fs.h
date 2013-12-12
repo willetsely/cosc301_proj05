@@ -36,7 +36,6 @@ typedef struct {
     nlink_t links;  //hard links
     uid_t uid;      //user ID of owner
     gid_t gid;      //group ID of owner
-    dev_t rdev;     //device ID
     off_t size;     //size in bytes
     time_t atime;   //time of last access
     time_t mtime;   //time of last modification
