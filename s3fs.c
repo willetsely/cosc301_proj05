@@ -164,7 +164,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     s3context_t *ctx = GET_PRIVATE_DATA;
     uint8_t *buffer = NULL;
     ssize_t success = 0;
-    success = s3fs_get_object(ctx->bucket, path, &buffer, 0, 0);
+    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
     free(buffer);
     if (success < 0)
     	return -EIO;
@@ -196,7 +196,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 	entry_t *entries = (entry_t *)buffer;
 	for (; i < num_entries; i++)
 	{
-		if (filler(buf, entries[i]->name, NULL, 0) != 0)
+		if (filler(buf, entries[i].name, NULL, 0) != 0)
 		{
 			free(buffer);
 			return -ENOMEM;
@@ -325,9 +325,10 @@ int fs_rmdir(const char *path) {
             int num_entries = (int)parent_size / (int)ENTRY_SIZE;
             entry_t *new_parent = (entry_t *)malloc((int)ENTRY_SIZE * (num_entries - 1));
             int j = 1;
-            for (int i = 0; i < num_entries; i++)
+            int i = 0;
+            for (; i < num_entries; i++)
             {
-                if (strcmp(parent_entry[i]->name, base_name) == 0)
+                if (strcmp(parent_entry[i].name, base_name) == 0)
                 {
                     if (j == num_entries)
                         break;
