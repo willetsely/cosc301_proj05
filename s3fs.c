@@ -405,7 +405,12 @@ int fs_mknod(const char *path, mode_t mode, dev_t dev) {
 int fs_open(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_open(path\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    uint8_t *buffer = NULL;
+    ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    free(buffer);
+    if (success < 0)   
+        return -EIO;
+    return 0;   //file is in the bucket! yay!
 }
 
 
@@ -454,7 +459,12 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
 int fs_release(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "fs_release(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    uint8_t *buffer = NULL;
+    ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    free(buffer);
+    if (success < 0)
+        return -EIO;
+    return (int)success;
 }
 
 
@@ -464,6 +474,50 @@ int fs_release(const char *path, struct fuse_file_info *fi) {
 int fs_rename(const char *path, const char *newpath) {
     fprintf(stderr, "fs_rename(fpath=\"%s\", newpath=\"%s\")\n", path, newpath);
     s3context_t *ctx = GET_PRIVATE_DATA;
+    uint8_t *buffer = NULL;
+    char *path_name = dirname(strdup(path));
+    char *base_name = basename(strdup(path));
+    char *new_basename = basename(strdup(newpath));
+    ssize_t got_obj = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    if (got_obj < 0)
+    {
+        free(buffer);
+        return -EIO;        //did not get file
+    }
+    int removed = s3fs_remove_object(ctx->s3bucket, path);
+    if (removed < 0)
+    {
+        free(buffer);
+        return -EIO;       //error removing the file
+    }   
+    ssize_t success = s3fs_put_object(ctx->s3bucket, newpath, buffer, got_obj);
+    if (success < 0)
+    {
+        free(buffer);
+        return -EIO;        //error putting in object with new pathname
+    }
+    free(buffer);
+
+    //update parent directory
+    uint8_t *parent_buffer = NULL;
+    ssize_t parent_success = s3fs_get_object(ctx->s3bucket, path_name, &parent_buffer, 0, 0);
+    if (parent_success < 0)
+    {
+        free(parent_buffer);
+        return -EIO;    
+    int num_entries = (int)parent_success / ENTRY_SIZE;
+    entry_t *parent = (entry_t *)parent_buffer;
+    int i = 0;
+    for (; i < num_entries; i++)
+    {
+        if (strcmp(parent[i].name, base_name) == 0)
+        {
+            strcpy(parent[i].name, new_basename);
+            free(parent_buffer);
+            return 0;
+        }
+    }
+    free(parent_buffer);
     return -EIO;
 }
 
