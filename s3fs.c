@@ -299,7 +299,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0].ctime = curr_time;
 
     //return success
-	printf("\n*******got through mkdir******\n"
+	printf("\n*******got through mkdir******\n");
     return 0;
 }
 
