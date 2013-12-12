@@ -314,7 +314,7 @@ int fs_rmdir(const char *path) {
     }
     if (success != ENTRY_SIZE)     //directory not empty
     {
-        printf(stderr, "fs_rmdir(path=\"%s\" is not empty)\n", path);
+        printf("fs_rmdir(path=\"%s\" is not empty)\n", path);
         free(buffer);
         return -EIO;
     }
@@ -354,8 +354,7 @@ int fs_rmdir(const char *path) {
                 new_parent[i] = parent_entry[i];  //copies old parent entry to new parent entry
                 j++;
             }
-            ssize_t overwrite = 0;
-            overwrite = s3fs_put_object(ctx->s3bucket, path_name, &buff, (num_entries - 1));
+            ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path_name, buff, (num_entries - 1));
             free(buff);   
             return 0;
         }
