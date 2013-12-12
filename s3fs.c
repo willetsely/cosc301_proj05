@@ -60,9 +60,11 @@ void *fs_init(struct fuse_conn_info *conn)
     root->ctime = curr_time;
     
     ssize_t success = s3fs_put_object(ctx->s3bucket, key, (uint8_t *)root, ENTRY_SIZE);       
+    printf("initialized / \n");
     free(root);
     if (success == -1)
         return -EIO;
+    printf("PARTYYYYYYYYYYYY TIME!!!");
     return ctx;
 }
 
@@ -96,7 +98,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
     if(success < 0)
     {
-        fprint(stderr, "directory %s does not exist\n", path_name);
+        printf(stderr, "directory %s does not exist\n", path_name);
         return -EIO;
     }
     
@@ -131,7 +133,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
                 success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
                 if(success < 0)
                 {
-                    fprint(stderr, "directory %s does not exist\n", base_name);
+                    printf(stderr, "directory %s does not exist\n", base_name);
                     return -EIO;
                 }
 
@@ -165,14 +167,17 @@ int fs_getattr(const char *path, struct stat *statbuf) {
  * this directory
  */
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
-    fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
+    fprintf(stderr, "\n******fs_opendir(path=\"%s\")*******\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
+    
     uint8_t *buffer = NULL;
     ssize_t success = 0;
+    
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
     free(buffer);
     if (success < 0)
     	return -EIO;
+	printf("\n*****got through opendir******");
 	return 0;
 }
 
@@ -184,7 +189,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
 int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
          struct fuse_file_info *fi)
 {
-    fprintf(stderr, "fs_readdir(path=\"%s\", buf=%p, offset=%d)\n",
+    fprintf(stderr, "\n******fs_readdir(path=\"%s\", buf=%p, offset=%d)*******\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
     uint8_t *buffer = NULL;
@@ -208,6 +213,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 		}
 	}
 	free(buffer);
+	printf("\n*****got through readdir*****");
 	return 0; 
 }
 
@@ -216,7 +222,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
  * Release directory.
  */
 int fs_releasedir(const char *path, struct fuse_file_info *fi) {
-    fprintf(stderr, "fs_releasedir(path=\"%s\")\n", path);
+    fprintf(stderr, "\n******fs_releasedir(path=\"%s\")******\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
     uint8_t *buffer = NULL;
     ssize_t success = 0;
@@ -224,6 +230,7 @@ int fs_releasedir(const char *path, struct fuse_file_info *fi) {
     free(buffer);    
     if (success < 0)
         return -EIO;
+	printf("\n******got through releasedir*******\n");
     return success;
 }
 
@@ -271,9 +278,9 @@ int fs_mkdir(const char *path, mode_t mode) {
 	strncpy(new_parent[i].name, base_name, 256);
 	new_parent[i].type = 'd';
 	
-	uint8_t blob_new_parent = (uint8_t) new_parent;
+	uint8_t *blob_new_parent = (uint8_t *) new_parent;
 	free(new_parent);
-	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(new_parent));
+	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(blob_new_parent));
 	if(success < 0)
 	{
 		return -EIO;
@@ -292,6 +299,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0].ctime = curr_time;
 
     //return success
+	printf("\n*******got through mkdir******\n"
     return 0;
 }
 

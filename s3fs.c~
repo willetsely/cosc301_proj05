@@ -60,9 +60,11 @@ void *fs_init(struct fuse_conn_info *conn)
     root->ctime = curr_time;
     
     ssize_t success = s3fs_put_object(ctx->s3bucket, key, (uint8_t *)root, ENTRY_SIZE);       
+    printf("initialized / \n");
     free(root);
     if (success == -1)
         return -EIO;
+    printf("PARTYYYYYYYYYYYY TIME!!!");
     return ctx;
 }
 
@@ -96,7 +98,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
     if(success < 0)
     {
-        fprint(stderr, "directory %s does not exist\n", path_name);
+        printf(stderr, "directory %s does not exist\n", path_name);
         return -EIO;
     }
     
@@ -131,7 +133,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
                 success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
                 if(success < 0)
                 {
-                    fprint(stderr, "directory %s does not exist\n", base_name);
+                    printf(stderr, "directory %s does not exist\n", base_name);
                     return -EIO;
                 }
 
@@ -165,14 +167,19 @@ int fs_getattr(const char *path, struct stat *statbuf) {
  * this directory
  */
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
-    fprintf(stderr, "fs_opendir(path=\"%s\")\n", path);
+    fprintf(stderr, "\nfs_opendir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
+    printf("\ninitializing variables\n");
     uint8_t *buffer = NULL;
     ssize_t success = 0;
+    printf("calling get object\n");
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    printf("problem might be the free\n");
     free(buffer);
+    printf("problem isn't the free\n");
     if (success < 0)
     	return -EIO;
+    printf("should succeed at this point\n");
 	return 0;
 }
 
@@ -271,9 +278,9 @@ int fs_mkdir(const char *path, mode_t mode) {
 	strncpy(new_parent[i].name, base_name, 256);
 	new_parent[i].type = 'd';
 	
-	uint8_t blob_new_parent = (uint8_t) new_parent;
+	uint8_t *blob_new_parent = (uint8_t *) new_parent;
 	free(new_parent);
-	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(new_parent));
+	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(blob_new_parent));
 	if(success < 0)
 	{
 		return -EIO;
