@@ -775,13 +775,14 @@ int fs_unlink(const char *path) {
     {
         if (strcmp(parent[i].name, file_name) == 0)
         {
-            if (j == num_entries)
-                break;
-            while (j < num_entries)
+            if (j != num_entries)
             {
-                new_parent[i] = parent[j];
-                j++;
-                i++;
+                while (j < num_entries)
+                {
+                    new_parent[i] = parent[j];
+                    j++;
+                    i++;
+                }
             }
             break;
         }
@@ -817,6 +818,12 @@ int fs_unlink(const char *path) {
 int fs_truncate(const char *path, off_t newsize) {
     fprintf(stderr, "fs_truncate(path=\"%s\", newsize=%d)\n", path, (int)newsize);
     s3context_t *ctx = GET_PRIVATE_DATA;
+    entry_t *file = NULL;
+    int success = (int)s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&file, 0, 0);
+    if (success < 0)
+        return -ENOENT;
+    
+        
     return -EIO;
 }
 
