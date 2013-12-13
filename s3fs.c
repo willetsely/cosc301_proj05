@@ -386,7 +386,56 @@ int fs_rmdir(const char *path) {
 int fs_mknod(const char *path, mode_t mode, dev_t dev) {
     fprintf(stderr, "fs_mknod(path=\"%s\", mode=0%3o)\n", path, mode);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+	
+	ssize_t success = s3fs_get_object(ctx->s3bucket, path, 0, 0);
+	if(success >= 0)
+		return -EEXIST;
+	
+	char *path_name = dirname(strdup(path));
+	char *file_name = basename(strdup(path));
+	uint8_t *buffer = NULL;
+
+	success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
+	if(success < 0)
+		return -EIO;
+
+	//update the directory
+	int num_entries = sizeof(buffer)/ENTRY_SIZE;
+	int i = 0;
+	entry_t *new_dir = (entry_t *)malloc((num_entries + 1)*ENTRY_SIZE);
+	entry_t *old_dir = (entry_t *)buffer;
+	free(buffer);
+		
+	for(;i < num_entries; i++)
+	{
+		new_dir[i] = old_dir[i];
+	}
+	new_dir[0].size = ENTRY_SIZE*(num_entries + 1);
+	new_dir[0].atime = curr_time;
+	new_dir[0].mtime = curr_time;
+
+	strncpy(new_dir[i].name, file_name, 256);
+	new_dir[i].type = 'f';
+	new_dir[i].mode = mode;
+	new_dir[i].links = 1;
+	new_dir[i].uid = getuid();
+	new_dir[i].gid = getgid();
+	new_dir[i].size = 0;
+	new_dir[i].atime = curr_time;
+	new_dir[i].mtime = curr_time;
+	new_dir[i].ctime = curr_time;
+
+	uint8_t *blob_new_dir = (uint8_t *) new_dir;
+	free(new_dir);
+	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_dir, sizeof(blob_new_dir));
+	if(success < 0)
+		return -EIO;
+ 
+	//s3 the file
+	success = s3fs_put_object(ctx->s3bucket, file_name, NULL, 0);
+	if(success < 0)
+    	return -EIO;
+	return 0;
 }
 
 
