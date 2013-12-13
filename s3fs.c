@@ -382,7 +382,7 @@ int fs_rmdir(const char *path) {
     }
 }
 
-char file_type(const char *path)
+char entry_type(const char *path)
 {
 	s3context_t *ctx = GET_PRIVATE_DATA;
 	
