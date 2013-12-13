@@ -186,6 +186,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);    
 
     entry_t *entries = (entry_t *)buffer;
+	time_t curr_time = time(NULL);
     entries[0].atime = curr_time;
     free(buffer);
 
@@ -241,6 +242,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 		}
 	}
 
+	time_t curr_time = time(NULL);
     curr_dir[0].atime = curr_time;
     success = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)curr_dir, size_dir);
     if(success < 0)
@@ -308,8 +310,13 @@ int fs_mkdir(const char *path, mode_t mode) {
 		//copy old entries over
 		new_parent[i] = old_parent[i];
     }
-	//reset size of parent directory
+
+	time_t curr_time = time(NULL);
+
+	//reset size of parent directory, and change atime, mtime
     new_parent[0].size = (num_entries + 1)*ENTRY_SIZE;
+    new_parent[0].atime = curr_time;
+    new_parent[0].mtime = curr_time;
 	//create new entry
 	strncpy(new_parent[i].name, base_name, 256);
 	new_parent[i].type = 'd';
@@ -321,7 +328,7 @@ int fs_mkdir(const char *path, mode_t mode) {
 	{
 		return -EIO;
 	}
-	time_t curr_time = time(NULL);	
+		
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0].name, ".", 256);
 	new_dir[0].type = 'd';
