@@ -95,7 +95,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     entry_t *buffer = NULL;
     ssize_t success = 0;
     
-    success = s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)buffer, 0, 0);
+    success = s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&buffer, 0, 0);
     if(success < 0)
     {
         printf(stderr, "directory %s does not exist\n", path_name);
@@ -224,7 +224,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     entry_t *buffer = NULL;
     ssize_t success = 0;
 
-    success = s3fs_get_object(ctx->s3bucket, path, (uint8_t **)buffer, 0, 0);
+    success = s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&buffer, 0, 0);
     if (success < 0)
     {
         free(buffer);
@@ -260,15 +260,15 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
  */
 int fs_releasedir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "\n******fs_releasedir(path=\"%s\")******\n", path);
-    s3context_t *ctx = GET_PRIVATE_DATA;
+    s3context_t *ctx = GET_PRIVATE_DATA;/*
     uint8_t *buffer = NULL;
     ssize_t success = 0;
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
     free(buffer);    
     if (success < 0)
         return -ENOENT;
-	printf("\n******got through releasedir*******\n");
-    return success;
+	printf("\n******got through releasedir*******\n"); */
+    return 0;
 }
 
 
@@ -285,8 +285,8 @@ int fs_mkdir(const char *path, mode_t mode) {
     s3context_t *ctx = GET_PRIVATE_DATA;
     mode |= S_IFDIR;
     
-    uint8_t *buffer = NULL;
-    ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    entry_t *buffer = NULL;
+    ssize_t success = s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&buffer, 0, 0);
     if(success >=  0)
     {
 		free(buffer);
@@ -297,9 +297,9 @@ int fs_mkdir(const char *path, mode_t mode) {
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));
     
-    success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
-	int num_entries = sizeof(buffer)/ENTRY_SIZE;
-	entry_t * new_parent = (entry_t *)malloc(sizeof(buffer) + ENTRY_SIZE);
+    success = s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&buffer, 0, 0);
+	int num_entries = success/ENTRY_SIZE;
+	entry_t * new_parent = (entry_t *)malloc(success + ENTRY_SIZE);
 	entry_t *old_parent = (entry_t *)buffer;
 	free(buffer);
 
@@ -309,20 +309,22 @@ int fs_mkdir(const char *path, mode_t mode) {
 		//copy old entries over
 		new_parent[i] = old_parent[i];
     }
-	//reset size of parent directory
+	//reset size of parent directory, alter times
+    time_t curr_time = time(NULL);
     new_parent[0].size = (num_entries + 1)*ENTRY_SIZE;
+    new_parent[0].atime = curr_time;
+    new_parent[0].mtime = curr_time;
 	//create new entry
 	strncpy(new_parent[i].name, base_name, 256);
 	new_parent[i].type = 'd';
 	
-	uint8_t *blob_new_parent = (uint8_t *) new_parent;
+	success = s3fs_put_object(ctx->s3bucket, path_name, (uint8_t *)new_parent, success + ENTRY_SIZE);
 	free(new_parent);
-	success = s3fs_put_object(ctx->s3bucket, path_name, blob_new_parent, sizeof(blob_new_parent));
-	if(success < 0)
+    if(success < 0)
 	{
 		return -EIO;
 	}
-	time_t curr_time = time(NULL);	
+	
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0].name, ".", 256);
 	new_dir[0].type = 'd';
@@ -336,6 +338,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0].ctime = curr_time;
 
 	success = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)new_dir, ENTRY_SIZE);
+    free(new_dir);
 	if(success < 0)
 		return -EIO;
 
