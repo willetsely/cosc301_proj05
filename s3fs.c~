@@ -184,6 +184,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     }
     
     entry_t *entries = (entry_t *)buffer;
+	time_t curr_time = time(NULL);
     entries[0].atime = curr_time;
     free(buffer);
 
@@ -223,6 +224,13 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 			return -ENOMEM;
 		}
 	}
+
+	time_t curr_time = time(NULL);
+    curr_dir[0].atime = curr_time;
+    success = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)curr_dir, size_dir);
+    if(success < 0)
+        return -EIO;
+
 	free(buffer);
 	printf("\n*****got through readdir*****");
 	return 0; 
@@ -283,6 +291,9 @@ int fs_mkdir(const char *path, mode_t mode) {
 		//copy old entries over
 		new_parent[i] = old_parent[i];
     }
+
+	time_t curr_time = time(NULL);
+
 	//reset size of parent directory
     new_parent[0].size = (num_entries + 1)*ENTRY_SIZE;
 	//create new entry
@@ -296,7 +307,7 @@ int fs_mkdir(const char *path, mode_t mode) {
 	{
 		return -EIO;
 	}
-	time_t curr_time = time(NULL);	
+		
 	entry_t *new_dir = (entry_t *)malloc(ENTRY_SIZE);
 	strncpy(new_dir[0].name, ".", 256);
 	new_dir[0].type = 'd';
@@ -308,6 +319,10 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0].atime = curr_time;
     new_dir[0].mtime = curr_time;
     new_dir[0].ctime = curr_time;
+
+	success = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)new_dir, ENTRY_SIZE);
+	if(success < 0)
+		return -EIO;
 
     //return success
 	printf("\n*******got through mkdir******\n");
@@ -433,7 +448,7 @@ char entry_type(const char *path)
 	int i = 0;
 	for(;i < num_entries; i++)
 	{
-		if(0 == strncmp(parent_dir[i].name, base_name, 256)
+		if(0 == strncmp(parent_dir[i].name, base_name, 256))
 		{		
 			ret_val = parent_dir[i].type;
 			return ret_val;		
@@ -472,15 +487,17 @@ int fs_mknod(const char *path, mode_t mode, dev_t dev) {
 
 	//update the directory
 	int num_entries = sizeof(buffer)/ENTRY_SIZE;
-	int i = 0;
 	entry_t *new_dir = (entry_t *)malloc((num_entries + 1)*ENTRY_SIZE);
 	entry_t *old_dir = (entry_t *)buffer;
 	free(buffer);
 		
+	int i = 0;
 	for(;i < num_entries; i++)
 	{
 		new_dir[i] = old_dir[i];
 	}
+
+	time_t curr_time = time(NULL);
 	new_dir[0].size = ENTRY_SIZE*(num_entries + 1);
 	new_dir[0].atime = curr_time;
 	new_dir[0].mtime = curr_time;
