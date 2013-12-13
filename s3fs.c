@@ -460,7 +460,7 @@ char entry_type(const char *path)
 	int i = 0;
 	for(;i < num_entries; i++)
 	{
-		if(0 == strncmp(buffer[i].name, base_name, 256)
+		if(0 == strncmp(buffer[i].name, base_name, 256))
 		{		
 			ret_val = buffer[i].type;
 			return ret_val;		
