@@ -169,7 +169,10 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "\n******fs_opendir(path=\"%s\")*******\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    
+        
+    char *path_name = dirname(strdup(path));
+    char *base_name = basename(strdup(path));    
+
     uint8_t *buffer = NULL;
     ssize_t success = 0;
     
@@ -179,10 +182,12 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
         free(buffer);
     	return -EIO;
     }
-    entry_t *entry = (entry_t *)buffer;
-    entry[0].a_time = curr_time;
+    
+    entry_t *entries = (entry_t *)buffer;
+    entries[0].atime = curr_time;
     free(buffer);
-    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entry, success);
+
+    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entries, success);
 	printf("\n*****got through opendir******");
 	return 0;
 }
@@ -377,6 +382,38 @@ int fs_rmdir(const char *path) {
     }
 }
 
+char file_type(const char *path)
+{
+	s3context_t *ctx = GET_PRIVATE_DATA;
+	
+	char ret_val = 'z';
+	uint8_t buffer = NULL;	
+	ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+	if(success < 0)
+	{
+		free(buffer);
+		return ret_val;
+	}	
+
+	char *path_name = dirname(strdup(path));
+	char *base_name = basename(strdup(path));
+
+	success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
+	int num_entries = success/ENTRY_SIZE;
+	entry_t *parent_dir = (entry_t *)buffer;
+	free(buffer)
+
+	int i = 0;
+	for(;i < num_entries; i++)
+	{
+		if(0 == strncmp(parent_dir[i].name, base_name, 256)
+		{		
+			ret_val = parent_dir[i].type;
+			return ret_val;		
+		}	
+	}
+	return ret_val;
+}
 
 /* *************************************** */
 /*        Stage 2 callbacks                */
@@ -394,13 +431,13 @@ int fs_mknod(const char *path, mode_t mode, dev_t dev) {
     fprintf(stderr, "fs_mknod(path=\"%s\", mode=0%3o)\n", path, mode);
     s3context_t *ctx = GET_PRIVATE_DATA;
 	
-	ssize_t success = s3fs_get_object(ctx->s3bucket, path, 0, 0);
+	uint8_t *buffer = NULL;
+	ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
 	if(success >= 0)
 		return -EEXIST;
 	
 	char *path_name = dirname(strdup(path));
 	char *file_name = basename(strdup(path));
-	uint8_t *buffer = NULL;
 
 	success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
 	if(success < 0)
