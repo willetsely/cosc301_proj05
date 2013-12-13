@@ -174,9 +174,15 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     ssize_t success = 0;
     
     success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
-    free(buffer);
     if (success < 0)
+    {
+        free(buffer);
     	return -EIO;
+    }
+    entry_t *entry = (entry_t *)buffer;
+    entry[0].a_time = curr_time;
+    free(buffer);
+    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entry, success);
 	printf("\n*****got through opendir******");
 	return 0;
 }
@@ -299,7 +305,7 @@ int fs_mkdir(const char *path, mode_t mode) {
     new_dir[0].ctime = curr_time;
 
     //return success
-	printf("\n*******got through mkdir******\n"
+	printf("\n*******got through mkdir******\n");
     return 0;
 }
 
@@ -339,7 +345,8 @@ int fs_rmdir(const char *path) {
             parent_size = s3fs_get_object(ctx->s3bucket, path_name, &buff, 0, 0);
             entry_t *parent_entry = (entry_t *)buff;
             int num_entries = (int)parent_size / (int)ENTRY_SIZE;
-            entry_t *new_parent = (entry_t *)malloc((int)ENTRY_SIZE * (num_entries - 1));
+            int new_entry_number = (int)ENTRY_SIZE * (num_entries - 1);
+            entry_t *new_parent = (entry_t *)malloc(new_entry_number);
             int j = 1;
             int i = 0;
             for (; i < num_entries; i++)
@@ -362,7 +369,7 @@ int fs_rmdir(const char *path) {
                 new_parent[i] = parent_entry[i];  //copies old parent entry to new parent entry
                 j++;
             }
-            ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path_name, buff, (num_entries - 1));
+            ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path_name, (uint8_t *)new_parent, new_entry_number);
             free(buff);   
             return 0;
         }
@@ -407,8 +414,16 @@ int fs_open(const char *path, struct fuse_file_info *fi) {
     s3context_t *ctx = GET_PRIVATE_DATA;
     uint8_t *buffer = NULL;
     ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    if (success < 0)
+    {
+        free(buffer);   
+        return -EIO;
+    }
+    entry_t *entry = (entry_t *)buffer;
+    entry[0].a_time = curr_time;
+    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path, entry, success);
     free(buffer);
-    if (success < 0)   
+    if (overwrite < 0)
         return -EIO;
     return 0;   //file is in the bucket! yay!
 }
@@ -425,7 +440,10 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_
     fprintf(stderr, "fs_read(path=\"%s\", buf=%p, size=%d, offset=%d)\n",
           path, buf, (int)size, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buf, (ssize_t)offset, size);
+    if (success < 0)
+        return -EIO;
+    return success;
 }
 
 
@@ -504,7 +522,8 @@ int fs_rename(const char *path, const char *newpath) {
     if (parent_success < 0)
     {
         free(parent_buffer);
-        return -EIO;    
+        return -EIO;  
+    }  
     int num_entries = (int)parent_success / ENTRY_SIZE;
     entry_t *parent = (entry_t *)parent_buffer;
     int i = 0;
@@ -512,11 +531,12 @@ int fs_rename(const char *path, const char *newpath) {
     {
         if (strcmp(parent[i].name, base_name) == 0)
         {
-            strcpy(parent[i].name, new_basename);
+            strncpy(parent[i].name, new_basename, 256);
             free(parent_buffer);
             return 0;
         }
     }
+    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path_name, parent, parent_success);
     free(parent_buffer);
     return -EIO;
 }
@@ -528,7 +548,48 @@ int fs_rename(const char *path, const char *newpath) {
 int fs_unlink(const char *path) {
     fprintf(stderr, "fs_unlink(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    return -EIO;
+    char *parent_path = dirname(strdup(path));
+    char *file_name = basename(strdup(path));
+    
+    //remove file
+    int removed = s3fs_remove_object(ctx->s3bucket, path);
+    if (removed < 0)
+        return -EIO;    //error while trying to remove file
+    
+    //update parent directory
+    uint8_t *buffer = NULL;
+    ssize_t parent_size = s3fs_get_object(ctx->s3bucket, parent_path, &buffer, 0, 0);
+    if (parent_size < 0)
+    {
+        free(buffer);
+        return -EIO;
+    }
+    int num_entries = (int)parent_size / (int)ENTRY_SIZE;
+    int new_parent_size = (int)ENTRY_SIZE * (num_entries - 1);
+    entry_t *parent = (entry_t *)buffer;
+    entry_t *new_parent = (entry_t *)malloc(new_parent_size);
+    int i = 0;
+    int j = 1;
+    for (; i < num_entries; i++)
+    {
+        if (strcmp(parent[i].name, file_name) == 0)
+        {
+            if (j == num_entries)
+                break;
+            while (j < num_entries)
+            {
+                new_parent[i] = parent[j];
+                j++;
+                i++;
+            }
+            break;
+        }
+        new_parent[i] = parent[i];
+        j++;
+    }
+    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, parent_path, (uint8_t *)new_parent, new_parent_size);
+    free(buffer);
+    return 0;
 }
 /*
  * Change the size of a file.
