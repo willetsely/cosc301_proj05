@@ -169,7 +169,13 @@ int fs_getattr(const char *path, struct stat *statbuf) {
 int fs_opendir(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "\n******fs_opendir(path=\"%s\")*******\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-        
+    
+    char type = entry_type(path);
+    if(type == 'z')
+        return -ENOENT;
+    if(type == 'd')
+        return -EISDIR;
+    
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));    
 
@@ -178,7 +184,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     if (success < 0)
     {
         free(buffer);
-    	return -ENOENT;
+    	return -EIO;
     }
     
     //reset access time
@@ -208,14 +214,22 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "\n******fs_readdir(path=\"%s\", buf=%p, offset=%d)*******\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
+
+    char type = entry_type(path);
+    if(type == 'z')
+        return -ENOENT;
+    if(type == 'd')
+        return -EISDIR;
+    
     entry_t *buffer = NULL;
     ssize_t success = 0;
     ssize_t byte_count = (ssize_t)offset;
+
     success = s3fs_get_object(ctx->s3bucket, path, (uint8_t **)buffer, 0, byte_count);
     if (success < 0)
     {
         free(buffer);
-        return -ENOENT;
+        return -EIO;
     }
 	int num_entries = (int)success/ENTRY_SIZE;
 	entry_t *entries = (entry_t *)buffer;
