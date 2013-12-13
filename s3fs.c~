@@ -173,21 +173,26 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));    
 
-    uint8_t *buffer = NULL;
-    ssize_t success = 0;
-    
-    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    entry_t *buffer = NULL;
+    int success = (int)s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&buffer, 0, 0);
     if (success < 0)
     {
         free(buffer);
     	return -ENOENT;
     }
     
-    entry_t *entries = (entry_t *)buffer;
-    entries[0].atime = curr_time;
+    //reset access time
+    time_t curr_time = time(NULL);
+    buffer[0].atime = curr_time;
     free(buffer);
 
-    ssize_t overwrite = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entries, success);
+    //put directory back into the bucket
+    int overwrite = (int)s3fs_put_object(ctx->s3bucket, path, (uint8_t *)buffer, success);
+    if (overwrite < 0)
+    {
+        printf("fs_opendir(path=\"%s\" error trying to put directory back into the bucket)\n", path);
+        return -EIO;
+    }
 	printf("\n*****got through opendir******");
 	return 0;
 }
@@ -325,8 +330,8 @@ int fs_mkdir(const char *path, mode_t mode) {
 int fs_rmdir(const char *path) {
     fprintf(stderr, "fs_rmdir(path=\"%s\")\n", path);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    uint8_t *buffer = NULL;
-    ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+    entry_t *buffer = NULL;
+    int success = (int)s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&buffer, 0, 0);
     if (success < 0)
     {
         free(buffer);
@@ -359,16 +364,15 @@ int fs_rmdir(const char *path) {
     printf("fs_rmdir(path=\"%s\" Directory was successfully removed)\n", path);
     const char *path_name = dirname(strdup(path));
     const char *base_name = basename(strdup(path));
-    uint8_t *buff = NULL;
-    ssize_t parent_size = s3fs_get_object(ctx->s3bucket, path_name, &buff, 0, 0);
+    entry_t *parent = NULL;
+    int parent_size = (int)s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&parent, 0, 0);
     if (parent_size < 0)
     {
         printf(stderr, "fs_rmdir(path=\"%s\" could not get parent directory)\n", path_name);
         return -ENOENT;
     }
 
-    entry_t *parent_entry = (entry_t *)buff;
-    int num_entries = (int)parent_size / (int)ENTRY_SIZE;
+    int num_entries = parent_size / (int)ENTRY_SIZE;
     int new_entry_number = (int)ENTRY_SIZE * (num_entries - 1);
     entry_t *new_parent = (entry_t *)malloc(new_entry_number);
     
@@ -377,31 +381,31 @@ int fs_rmdir(const char *path) {
     int i = 0;
     for (; i < num_entries; i++)
     {
-        if (strcmp(parent_entry[i].name, base_name) == 0)
+        if (strcmp(parent[i].name, base_name) == 0)
         {
             if (j != num_entries)
             {
                 while (j < num_entries)
                 {
-                    new_parent[i] = parent_entry[j]; //copying next index of old parent to current
+                    new_parent[i] = parent[j]; //copying next index of old parent to current
                     i++;                             //index of new parent
                     j++;
                 }
             }
             break;
         }
-        new_parent[i] = parent_entry[i];  //copies old parent entry to new parent entry
+        new_parent[i] = parent[i];  //copies old parent entry to new parent entry
         j++;
     }
-    free(buff);
+    free(parent);
     
     //change the size in the metadata for the new parent
     new_parent[0].size = new_entry_number;
 
     //adjust last access and modification time of parent directory
     time_t curr_time = time(NULL);
-    new_parent[0].a_time = curr_time;
-    new_parent[0].m_time = curr_time;
+    new_parent[0].atime = curr_time;
+    new_parent[0].mtime = curr_time;
     
     //put new_parent back into the bucket
     success = s3fs_put_object(ctx->s3bucket, path_name, (uint8_t *)new_parent, new_entry_number);
@@ -418,8 +422,8 @@ char entry_type(const char *path)
 	s3context_t *ctx = GET_PRIVATE_DATA;
 	
 	char ret_val = 'z';
-	uint8_t buffer = NULL;	
-	ssize_t success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, 0);
+	entry_t *buffer = NULL;	
+	int success = (int)s3fs_get_object(ctx->s3bucket, path, (uint8_t **)&buffer, 0, 0);
 	if(success < 0)
 	{
 		free(buffer);
@@ -429,17 +433,15 @@ char entry_type(const char *path)
 	char *path_name = dirname(strdup(path));
 	char *base_name = basename(strdup(path));
 
-	success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
-	int num_entries = success/ENTRY_SIZE;
-	entry_t *parent_dir = (entry_t *)buffer;
-	free(buffer)
+	success = (int)s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&buffer, 0, 0);
+	int num_entries = success/(int)ENTRY_SIZE;
 
 	int i = 0;
 	for(;i < num_entries; i++)
 	{
-		if(0 == strncmp(parent_dir[i].name, base_name, 256)
+		if(0 == strncmp(buffer[i].name, base_name, 256)
 		{		
-			ret_val = parent_dir[i].type;
+			ret_val = buffer[i].type;
 			return ret_val;		
 		}	
 	}
