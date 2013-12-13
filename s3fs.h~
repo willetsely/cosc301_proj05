@@ -27,8 +27,6 @@ typedef struct {
  * type) should go here.
  */
 
-char entry_type(const char *path);
-
 typedef struct {
     char type;
     char name[256];
