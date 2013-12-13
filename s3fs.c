@@ -92,17 +92,17 @@ int fs_getattr(const char *path, struct stat *statbuf) {
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));
 
-    uint8_t *buffer = NULL;
+    entry_t *buffer = NULL;
     ssize_t success = 0;
     
-    success = s3fs_get_object(ctx->s3bucket, path_name, &buffer, 0, 0);
+    success = s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)buffer, 0, 0);
     if(success < 0)
     {
         printf(stderr, "directory %s does not exist\n", path_name);
         return -ENOENT;
     }
     
-    int num_entries = sizeof(buffer)/ENTRY_SIZE;
+    int num_entries = success/ENTRY_SIZE;
     entry_t * curr_dir = (entry_t *) buffer;
     free(buffer);
     
@@ -130,7 +130,7 @@ int fs_getattr(const char *path, struct stat *statbuf) {
             }
             else if(curr_dir[i].type == 'd')
             {
-                success = s3fs_get_object(ctx->s3bucket, base_name, &buffer, 0, ENTRY_SIZE);
+                success = s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)buffer, 0, ENTRY_SIZE);
                 if(success < 0)
                 {
                     printf(stderr, "directory %s does not exist\n", base_name);
@@ -203,18 +203,18 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fprintf(stderr, "\n******fs_readdir(path=\"%s\", buf=%p, offset=%d)*******\n",
           path, buf, (int)offset);
     s3context_t *ctx = GET_PRIVATE_DATA;
-    uint8_t *buffer = NULL;
+    entry_t *buffer = NULL;
     ssize_t success = 0;
     ssize_t byte_count = (ssize_t)offset;
-    success = s3fs_get_object(ctx->s3bucket, path, &buffer, 0, byte_count);
+    success = s3fs_get_object(ctx->s3bucket, path, (uint8_t **)buffer, 0, byte_count);
     if (success < 0)
     {
         free(buffer);
         return -ENOENT;
     }
-	int num_entries = (int)success / sizeof(entry_t);
-	int i = 0;
+	int num_entries = (int)success/ENTRY_SIZE;
 	entry_t *entries = (entry_t *)buffer;
+	int i = 0;
 	for (; i < num_entries; i++)
 	{
 		if (filler(buf, entries[i].name, NULL, 0) != 0)
@@ -223,6 +223,13 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 			return -ENOMEM;
 		}
 	}
+
+	time_t curr_time = time(NULL);
+    curr_dir[0].atime = curr_time;
+    success = s3fs_put_object(ctx->s3bucket, path, (uint8_t *)curr_dir, size_dir);
+    if(success < 0)
+        return -EIO;
+
 	free(buffer);
 	printf("\n*****got through readdir*****");
 	return 0; 
