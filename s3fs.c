@@ -653,7 +653,6 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
 	if(type == 'd')
 		return -EISDIR;
 
-	entry_t *buffer = NULL;
 	char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));
     
@@ -666,17 +665,18 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
         return -EIO;
     }
 
-    if (success > offset + size)    
-        ssize_t new_buffsize = (ssize_t)success;
+    ssize_t new_buffsize = 0;
+    if (success > offset + size)
+        new_buffsize = (ssize_t)success;
     else
-        ssize_t new_buffsize = (ssize_t)(offset + size);
+        new_buffsize = (ssize_t)(offset + size);
 
     uint8_t *new_buff = (uint8_t *)malloc(new_buffsize);
     if (success < offset + size)
     {
         memcpy(new_buff, buffer, offset);
         memcpy(&new_buff[offset], buf, size);
-        memcpy(&new_buff[offset+size], new_buffsize - size - offset);
+        memcpy(&new_buff[offset+size], buffer, new_buffsize - size - offset);
     }
     else
     {
@@ -690,7 +690,6 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
     if (success < 0)
         return -EIO;
     
-    entry_t *buffer = NULL;
     success = (int)s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&buffer, 0, 0);
 	if(success < 0)
 		return -EIO;
@@ -710,7 +709,7 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
     if (success < 0)
         return -EIO;
 
-    return ret_val;
+    return (int)size;
 }
 
 
