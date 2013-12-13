@@ -243,7 +243,7 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 
 	time_t curr_time = time(NULL);
     entries[0].atime = curr_time;
-    success = (int)s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entries, size_dir);
+    success = (int)s3fs_put_object(ctx->s3bucket, path, (uint8_t *)entries, (ssize_t)success);
     if(success < 0)
         return -EIO;
 
