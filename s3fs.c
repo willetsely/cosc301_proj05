@@ -174,7 +174,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
         return -ENOENT;
     if(type == 'd')
         return -EISDIR;
-    
+ 
     char *path_name = dirname(strdup(path));
     char *base_name = basename(strdup(path));    
 
@@ -189,15 +189,16 @@ int fs_opendir(const char *path, struct fuse_file_info *fi) {
     //reset access time
     time_t curr_time = time(NULL);
     buffer[0].atime = curr_time;
-    free(buffer);
 
     //put directory back into the bucket
     int overwrite = (int)s3fs_put_object(ctx->s3bucket, path, (uint8_t *)buffer, success);
     if (overwrite < 0)
     {
+        free(buffer);
         printf("fs_opendir(path=\"%s\" error trying to put directory back into the bucket)\n", path);
         return -EIO;
     }
+    free(buffer);
 	printf("\n*****got through opendir******");
 	return 0;
 }
@@ -690,20 +691,21 @@ int fs_write(const char *path, const char *buf, size_t size, off_t offset, struc
     if (success < 0)
         return -EIO;
     
-    success = (int)s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&buffer, 0, 0);
+    entry_t * wbuffer= NULL; 
+    success = (int)s3fs_get_object(ctx->s3bucket, path_name, (uint8_t **)&wbuffer, 0, 0);
 	if(success < 0)
 		return -EIO;
 	int num_entries = success/(int)ENTRY_SIZE;
-    buffer = (entry_t *)buffer;
+    wbuffer = (entry_t *)wbuffer;
 
 	time_t curr_time = time(NULL);
 	int i = 0;
 	for(;i < num_entries; i++)
 	{
-		if(0 == strncmp(buffer[i].name, base_name, 256))
-			buffer[i].size = new_buffsize;
-			buffer[i].atime = curr_time;
-			buffer[i].mtime = curr_time;
+		if(0 == strncmp(wbuffer[i].name, base_name, 256))
+			wbuffer[i].size = new_buffsize;
+			wbuffer[i].atime = curr_time;
+			wbuffer[i].mtime = curr_time;
 	}	
 	success = (int)s3fs_put_object(ctx->s3bucket, path_name, (uint8_t *)buffer, (ssize_t)success);		
     if (success < 0)
@@ -783,7 +785,7 @@ int fs_rename(const char *path, const char *newpath) {
         if (strcmp(parent_buffer[i].name, base_name) == 0)
             strncpy(parent_buffer[i].name, new_basename, 256);
     }
-    got_obj = (int)s3fs_put_object(ctx->s3bucket, path_name, parent, parent_success);
+    got_obj = (int)s3fs_put_object(ctx->s3bucket, path_name, parent_buffer, parent_success);
     if (got_obj < 0)
     {
         free(parent_buffer);
@@ -852,8 +854,8 @@ int fs_unlink(const char *path) {
     new_parent[0].size = new_parent_size;
     
     time_t curr_time = time(NULL);
-    new_parent[0].a_time = curr_time;
-    new_parent[0].m_time = curr_time;
+    new_parent[0].atime = curr_time;
+    new_parent[0].mtime = curr_time;
 
     int overwrite = (int)s3fs_put_object(ctx->s3bucket, parent_path, (uint8_t *)new_parent, new_parent_size);
     free(buffer);
