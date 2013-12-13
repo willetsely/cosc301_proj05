@@ -345,9 +345,13 @@ int fs_rmdir(const char *path) {
         return -EIO;
     }
     free(buffer);
+    
+    //remove directory
     if(s3fs_remove_object(ctx->s3bucket, path) != 0)
+    {
+        printf("fs_rmdir(path=\"%s\" error while trying to remove directory)\n",path);
         return -EIO;
-
+    }
     printf("fs_rmdir(path=\"%s\" Directory was successfully removed)\n", path);
     const char *path_name = dirname(strdup(path));
     const char *base_name = basename(strdup(path));
@@ -664,10 +668,12 @@ int fs_unlink(const char *path) {
     char *parent_path = dirname(strdup(path));
     char *file_name = basename(strdup(path));
     
-    //remove file
-    int removed = s3fs_remove_object(ctx->s3bucket, path);
-    if (removed < 0)
-        return -ENOENT;    //error while trying to remove file
+    //check if the path is to a file
+    if (entry_type(path) != 'f')
+    {
+        printf("fs_unlink(path=\"%s\" is not a file)\n", path);
+        return -EIO;
+    }
     
     //update parent directory
     uint8_t *buffer = NULL;
@@ -675,7 +681,7 @@ int fs_unlink(const char *path) {
     if (parent_size < 0)
     {
         free(buffer);
-        return -EIO;
+        return -ENOENT;
     }
     int num_entries = (int)parent_size / (int)ENTRY_SIZE;
     int new_parent_size = (int)ENTRY_SIZE * (num_entries - 1);
@@ -700,8 +706,27 @@ int fs_unlink(const char *path) {
         new_parent[i] = parent[i];
         j++;
     }
+
+    //remove file
+    int removed = s3fs_remove_object(ctx->s3bucket, path);
+    if (removed < 0)
+        return -EIO;    //error while trying to remove file
+
+    //update new_parent size, access and modified time
+    new_parent[0].size = new_parent_size;
+    
+    time_t curr_time = time(NULL);
+    new_parent[0].a_time = curr_time;
+    new_parent[0].m_time = curr_time;
+
     ssize_t overwrite = s3fs_put_object(ctx->s3bucket, parent_path, (uint8_t *)new_parent, new_parent_size);
     free(buffer);
+    if (overwrite < 0)
+    {
+        fprintf(stderr, "fs_unlink(path=\"%s\" failed to put new_parent in the bucket)\n", parent_path);
+        return -EIO;
+    }
+    printf("\n~~~~~~~~~~~Successfully unlinked file \"%s\"~~~~~~~~~~~~~~~ \n",path);
     return 0;
 }
 /*

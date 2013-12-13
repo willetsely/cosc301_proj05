@@ -668,10 +668,17 @@ int fs_unlink(const char *path) {
     char *parent_path = dirname(strdup(path));
     char *file_name = basename(strdup(path));
     
+    //check if the path is to a file
+    if (entry_type(path) != 'f')
+    {
+        printf("fs_unlink(path=\"%s\" is not a file)\n", path);
+        return -EIO;
+    }
+    
     //update parent directory
-    uint8_t *buffer = NULL;
-    ssize_t parent_size = s3fs_get_object(ctx->s3bucket, parent_path, &buffer, 0, 0);
-    if (parent_size < 0)
+    entry_t *buffer = NULL;
+    ssize_t parent_size = s3fs_get_object(ctx->s3bucket, parent_path, (uint8_t **)&buffer, 0, 0);
+    if ((int)parent_size < 0)
     {
         free(buffer);
         return -ENOENT;
